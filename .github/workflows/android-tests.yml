@@ -64,18 +64,10 @@ jobs:
             chmod +x ./gradlew
             adb reconnect offline >/dev/null 2>&1 || true
             serial=$(adb devices | awk '/\tdevice$/{print $1; exit}')
-            if [ -z "$serial" ]; then
-              echo "No adb device in ready state after emulator boot"
-              adb devices -l
-              exit 1
-            fi
+            [ -n "$serial" ] || (echo "No adb device in ready state after emulator boot" && adb devices -l && exit 1)
             export UDID="$serial"
             export HARNESS_PROFILE=strict
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              ./gradlew smokeTest --no-daemon
-            else
-              ./gradlew test --no-daemon
-            fi
+            if [ "${{ github.event_name }}" = "pull_request" ]; then ./gradlew smokeTest --no-daemon; else ./gradlew test --no-daemon; fi
 
       - name: Publish test results
         if: always()
