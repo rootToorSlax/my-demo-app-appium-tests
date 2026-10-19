@@ -86,7 +86,6 @@ fun Test.configureTestLogging() {
         showExceptions = true
         showCauses = true
         showStackTraces = true
-        displayGranularity = org.gradle.api.tasks.testing.logging.TestLogging.DisplayGranularity.MIDDLE
     }
     addTestListener(
         object : TestListener {
