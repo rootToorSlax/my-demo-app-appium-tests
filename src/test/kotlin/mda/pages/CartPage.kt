@@ -1,14 +1,26 @@
 package mda.pages
 
 import io.appium.java_client.android.AndroidDriver
+import mda.config.Config
 import mda.locators.CartLocators
 class CartPage(driver: AndroidDriver) : Screen(driver) {
     fun badge(): Int {
         return visible(CartLocators.badge).text.trim().toInt()
     }
 
+    fun badgeCountOrZero(): Int {
+        val shown = driver.findElements(CartLocators.badge).firstOrNull { element ->
+            try {
+                element.isDisplayed
+            } catch (_: Exception) {
+                false
+            }
+        }
+        return shown?.text?.trim()?.toIntOrNull() ?: 0
+    }
+
     fun badgeAbove(previous: Int): Int {
-        return until(15) {
+        return until(Config.uiWaitSeconds) {
             val shown = driver.findElements(CartLocators.badge).firstOrNull { element ->
                 try {
                     element.isDisplayed
@@ -30,5 +42,5 @@ class CartPage(driver: AndroidDriver) : Screen(driver) {
         visible(CartLocators.remove).click()
     }
 
-    fun emptyCopy(): String = visible(CartLocators.emptyTitle, 25).text
+    fun emptyCopy(): String = visible(CartLocators.emptyTitle, Config.cartEmptyWaitSeconds).text
 }

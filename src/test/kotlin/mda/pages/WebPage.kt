@@ -30,7 +30,7 @@ class WebPage(driver: AndroidDriver) : Screen(driver) {
         return driver.findElements(WebLocators.errorPanel).any { element ->
             try {
                 element.isDisplayed
-            } catch (ignored: Exception) {
+            } catch (_: Exception) {
                 false
             }
         }

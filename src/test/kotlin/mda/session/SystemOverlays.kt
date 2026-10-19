@@ -2,6 +2,7 @@ package mda.session
 
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
+import mda.config.Config
 import org.openqa.selenium.By
 import org.openqa.selenium.WebElement
 
@@ -30,11 +31,18 @@ object SystemOverlays {
         """new UiSelector().description("Wait")""",
     )
 
-    fun stabilize(driver: AndroidDriver, rounds: Int = 4) {
+    fun stabilize(driver: AndroidDriver, rounds: Int = Config.overlayStabilizeRounds) {
         repeat(rounds) {
             dismissBlocking(driver)
-            Thread.sleep(400)
+            Thread.sleep(100)
         }
+    }
+
+    fun dismissBlockingIfEnabled(driver: AndroidDriver) {
+        if (!Config.dismissOverlaysOnWaitPoll) {
+            return
+        }
+        dismissBlocking(driver)
     }
 
     fun dismissBlocking(driver: AndroidDriver) {
@@ -50,7 +58,7 @@ object SystemOverlays {
             val wait = firstDisplayed(driver, AppiumBy.androidUIAutomator(selector))
             if (wait != null) {
                 wait.click()
-                Thread.sleep(300)
+                Thread.sleep(150)
                 return
             }
         }

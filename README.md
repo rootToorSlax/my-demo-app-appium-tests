@@ -2,9 +2,167 @@
 
 Black-box UI checks for Sauce Labs **My Demo App** (Android), using **Kotlin**, **JUnit 5**, and **Appium 3** with **UiAutomator2**.
 
-**Reviewer path:** read `docs/test-scenarios.md`, then `src/test/kotlin/mda/tests`. A green GitHub Actions run is enough to judge the automation; use [Quick start](#quick-start) only if you want to run locally.
+**Reviewer path:** a green **GitHub Actions** run is enough to judge the automation. For a **local** run, follow [Local installation manual (reviewers)](#local-installation-manual-reviewers) (Windows: `run-smoke.cmd` in **cmd**, ~2 min). Then `docs/test-scenarios.md` and `src/test/kotlin/mda/tests`. Command cheat sheet: `docs/run-commands.md`.
 
 The **Git repository URL** is sent in the submission email; this README assumes you already cloned that repo into a working directory.
+
+## Stack & local setup (reviewer or AI)
+
+Pinned toolchain for this repo (do **not** mix with an old Appium 2 install on the same machine unless you reinstall the driver):
+
+| Piece | Version / note |
+|-------|----------------|
+| **Appium server** | **3.x** (`npm install -g appium@3`) |
+| **UiAutomator2 driver** | **8.x** (installed with Appium 3) |
+| **java-client** | **11.0.0** (`build.gradle.kts`) |
+| **Selenium** | 4.50.x (transitive) |
+| **JDK** | 17 (Gradle toolchain) |
+| **Android** | API **34** emulator, AVD name **`Pixel_7_API_34`** |
+| **APK** | Sauce My Demo App **2.3.0** → `apps/mda-2.3.0-27.apk` (not in git) |
+
+**One-time Appium install (human or agent):**
+
+```bash
+npm install -g appium@3
+appium driver uninstall uiautomator2    # only if upgrading from Appium 2
+appium driver install uiautomator2
+appium -v
+appium driver list --installed          # must list uiautomator2
+```
+
+**Already wired in the project (no manual flags when using `gradlew test`):**
+
+- Local Appium is started with `--allow-insecure uiautomator2:chromedriver_autodownload` (`AppiumServer.kt`) so WebView tests can fetch a matching Chromedriver on Appium 3.
+- Capabilities include `appium:chromedriverAutodownload=true` (`SessionOptions.kt`).
+- CI uses the same stack: `npm install -g appium@3` and `appium driver install uiautomator2` in `.github/workflows/android-tests.yml`.
+
+**Not used:** Espresso driver, XCUITest, Appium 2 / java-client 9–10, or a separate Chromedriver install.
+
+**Agent checklist:** `JAVA_HOME` + `ANDROID_HOME` set → APK in `apps/` → emulator `device` in `adb devices` → [run scripts](#local-installation-manual-reviewers) or `gradlew` from repo root.
+
+## Local installation manual (reviewers)
+
+Step-by-step for **Windows** (same ideas on Linux/macOS with `./gradlew` and `scripts/android-env.cmd` patterns). Do this once per machine, then use the **run scripts** so you do not fight `UDID`, `adb`, or a silent emulator.
+
+### 1. Prerequisites (one time)
+
+Complete [First-time toolchain](#first-time-toolchain): **JDK 17**, **Android SDK API 34**, AVD **`Pixel_7_API_34`**, **Node.js**, **Appium 3** + **uiautomator2** driver, and the [pinned APK](#app-binary) at `apps/mda-2.3.0-27.apk`.
+
+Verify:
+
+```bat
+java -version
+adb version
+emulator -list-avds
+appium -v
+```
+
+`ANDROID_HOME` must point at the SDK (Windows default often `%LOCALAPPDATA%\Android\Sdk`). If `adb` is “not recognized” in cmd, run `call scripts\android-env.cmd` or add `%ANDROID_HOME%\platform-tools` to `PATH`.
+
+### 2. Recommended: run scripts (no manual `UDID`)
+
+From the **repo root**. Use **Command Prompt** or **PowerShell** with the **`.\` prefix** (PowerShell does not run `run-full.cmd` without it):
+
+```bat
+cd C:\path\to\my-demo-app-appium-tests
+.\run-smoke.cmd
+.\run-full.cmd
+```
+
+In **cmd.exe** you can also type `run-smoke.cmd` without `.\`. Do **not** type `gradlew test` alone — use **`.\gradlew.bat test`** (PowerShell) or **`gradlew.bat test`** (cmd).
+
+| Script | Use when |
+|--------|----------|
+| **`run-smoke.cmd`** | Quick check — **4 smoke tests**, ~2 min |
+| **`run-full.cmd`** | **Emulator + wait +** full **`gradlew test --rerun-tasks`** (17 tests), harness **fast** (~5–7 min target). Not emulator-only — keep the **MDA full regression** cmd window open. |
+| **`run-gate.cmd`** | Pre-release / CI-like — **`HARNESS_PROFILE=strict`** + full test |
+| **`stop.cmd`** | Stop Gradle daemons and kill emulators |
+
+Each script:
+
+1. Sets `ANDROID_HOME` / `PATH` (`scripts\android-env.cmd`)
+2. Starts the emulator in a **second window** with **`-no-audio`** when `mute.android.system=true` (default)
+3. Waits until `adb devices` shows **`device`** and boot completed
+4. Writes `UDID` for that run (e.g. `emulator-5554`) — you do **not** need to type `set UDID=…` yourself
+5. Runs `apply-mute.cmd` then Gradle
+
+**Do not** run a second `gradlew test` in parallel while a script is still running.
+
+### 3. Manual `gradlew` (only if you prefer)
+
+Use this only when the emulator is **already** running and visible in `adb devices`:
+
+```bat
+call scripts\android-env.cmd
+adb devices
+```
+
+You must see exactly one line like `emulator-5554    device`.
+
+Then either:
+
+- **Let the suite pick the device** (leave `udid` empty in `config.properties` and **do not** set `UDID` in the environment), or
+- Set **`UDID` to that exact serial** — but only while that device is online:
+
+```bat
+set UDID=emulator-5554
+gradlew.bat test --rerun-tasks
+```
+
+**Common mistake:** `set UDID=emulator-5554` left over from an old session while the emulator is **off**. Appium then returns *Could not find a connected Android device*. Fix:
+
+```bat
+set UDID=
+```
+
+or close the cmd window, or use **`run-full.cmd`** again. The suite only trusts `UDID` when `adb` lists that serial as `device` (`DeviceWait`).
+
+**`gradlew test` alone does not start the emulator.** Use `run-full.cmd` or start the AVD yourself first.
+
+### 4. Gradle tasks and tags
+
+| Command | What runs |
+|---------|-----------|
+| `gradlew.bat test` / `test --rerun-tasks` | All **17** tests |
+| `gradlew.bat smokeTest` | Tag **`smoke`** (4 tests) |
+| `gradlew.bat a11yTest` | Tag **`a11y`** (2 tests) |
+| `gradlew.bat test --tests mda.tests.CartTest` | One class |
+| `gradlew.bat --stop` | Stop Gradle daemons |
+
+Full list: `docs/run-commands.md`.
+
+### 5. Harness profile (speed vs CI extras)
+
+Default in `config.properties`: **`harness.profile=fast`** — good for local iteration (no per-test logcat clear / crash oracle / overlay sweep on every wait).
+
+| Profile | Set via | Typical use |
+|---------|---------|-------------|
+| **fast** | default in `config.properties` | `run-full.cmd`, daily dev |
+| **strict** | `set HARNESS_PROFILE=strict` or **`run-gate.cmd`** | Same extras as **GitHub Actions** (`crash.oracle`, logcat hygiene, overlay polls) |
+
+At suite start, the log prints: `Harness profile: fast (strict extras: oracle=…, …)`.
+
+### 6. Audio (silent by default)
+
+Single switch: **`mute.android.system=true`** in `config.properties` (default). Scripts, emulator **`-no-audio`**, and **`AudioGuard`** in tests keep guest audio off across session resets and app restarts.
+
+**Reviewer wants sound:** set `mute.android.system=false` or `set MUTE_ANDROID_SYSTEM=false` before run (and start emulator without `-no-audio` if you launch it manually).
+
+### 7. After a failed or stuck run
+
+```bat
+stop.cmd
+```
+
+Then `run-smoke.cmd` or `run-full.cmd` once. If instrumentation errors persist: `adb uninstall io.appium.settings` once, then rerun.
+
+### 8. What “success” looks like
+
+- Smoke: `BUILD SUCCESSFUL`, **4/4** tests
+- Full: `BUILD SUCCESSFUL`, **17/17** tests, summary `TEST SUMMARY: 17/17 passed`
+- Lines `--- Session start: TC-… ---` / `--- Session ready ---` between tests
+
+CI runs the full **`test`** suite (17 tests, `HARNESS_PROFILE=strict`) on PR and push — no local setup required to review the submission. Use **`smokeTest`** locally for a ~2 min check.
 
 ## Quick start
 
@@ -12,12 +170,53 @@ The **Git repository URL** is sent in the submission email; this README assumes 
 2. [Download the APK](#app-binary) into `apps/` (not in git).
 3. Start the emulator (or skip if Appium should boot the AVD — see step 5 in toolchain verify).
 4. From the **project root** (where `gradlew` lives):
-   - Windows: `gradlew.bat test`
-   - Linux / macOS: `./gradlew test`
+
+   **Windows (recommended — emulator console + wait for device + `UDID`):**
+   ```bat
+   run-smoke.cmd
+   ```
+   Opens the emulator in a **second cmd window** with verbose logs, waits until `adb` sees `device`, sets `UDID`, then runs **`smokeTest`** (~2 min). Full regression: `run-full.cmd` (~5–7 min). Stop Gradle/emulator: `stop.cmd`.
+
+   **Manual:** emulator already up in `adb devices`, then `gradlew.bat test --rerun-tasks` — see [Local installation manual](#local-installation-manual-reviewers).
 
    When `appium.server.url` is empty, the suite starts Appium on `127.0.0.1:4723` before the first session.
 
-**Success:** Gradle prints `BUILD SUCCESSFUL` and **13** tests pass. First run may take several minutes (Gradle, emulator boot, Appium driver install on device).
+**Success:** `BUILD SUCCESSFUL`. First run may take several minutes (Gradle, emulator boot, UiAutomator2 install on device).
+
+**How long is normal?** **17** Appium sessions (one per test). With **`harness.profile=fast`** and a running emulator, full suite is often **~5–7 minutes**. Strict / extras or a stuck wait can be longer. One `gradlew` at a time; use `stop.cmd` if needed.
+
+## Test suites
+
+| Gradle task | JUnit tags | When |
+|-------------|------------|------|
+| `gradlew test` | (all) | Local full run; CI on **push** to `master` / `main`, nightly, manual dispatch |
+| `gradlew smokeTest` | `smoke` | Fast local gate — four checks |
+| `gradlew a11yTest` | `a11y` | Accessibility label checks (2 tests) |
+
+TC ids and mapping: `docs/test-scenarios.md`. App findings: `docs/findings.md`. Deliberate omissions: `docs/scope-decisions.md`. Logcat crash oracle: `docs/logcat-crash-oracle.md`.
+
+## Senior extras (optional depth)
+
+Beyond the original regression paths, the suite adds reviewer-friendly depth. Most behaviour is **on by default** and **tunable** in `config.properties` (or env overrides — see [Configuration](#configuration)).
+
+| Extra | What it does | Tags / task | Config / toggle |
+|-------|----------------|-------------|-----------------|
+| TC-xx traceability | `@DisplayName("TC-…")` on every test; Gradle HTML report shows ids | all tests | — |
+| Findings & scope | Documented app/env quirks and deliberate omissions | — | `docs/findings.md`, `docs/scope-decisions.md` |
+| Parameterized login | TC-02/03/04 in one `@ParameterizedTest` | `LoginTest` | — |
+| Smoke vs full | Fast local gate vs full regression | `smoke` on four tests; `gradlew smokeTest` | CI: full `test` on PR and push |
+| JUnit report in CI | Test summary on the GitHub job | workflow | — |
+| Logcat crash oracle | After each test, fail if logcat shows FATAL/ANR | all tests | `crash.oracle` — **on** in `strict` harness, **off** in `fast` (default local) |
+| Cold-start budget | Three `am start -W` samples; median vs soft cap | `perf`, `StartupTest` | `startup.budget.ms` (default **3000**) |
+| Kill / relaunch | TC-14: cart badge after process death (documented behaviour) | `CartTest` | — |
+| Accessibility audit | Clickable controls on login + catalog must have label or text (known gaps allowlisted) | `a11y` | — |
+| Harness fast / strict | Local speed vs CI-depth checks | all tests | `harness.profile` (**fast** default); CI sets **`HARNESS_PROFILE=strict`** |
+| Session warm-up | Overlay sweep after each new session | all tests | `overlay.stabilize.rounds` (0 in fast, 1 in strict) |
+| Emulator hygiene | Silent AVD + optional `adb emu kill` after JVM exit | harness | `mute.android.system` (**true** default); `kill.after.testrun` (**true**; **`false`** while debugging) |
+| Deep links | `DeepLinks.kt` + `mobile: deepLink` helper | not used in asserts | APK **2.3.0** does not register URIs — see F-09 |
+| Offline WebView | — | not automated | F-10; TC-10/11 cover validation and happy path |
+
+**GATE before release:** `run-gate.cmd` (or `HARNESS_PROFILE=strict` + `gradlew test --rerun-tasks`) three times green, then `run-smoke.cmd` once.
 
 ## First-time toolchain
 
@@ -78,29 +277,20 @@ Install **Node.js 18+** (LTS). Then:
 
 ```bash
 npm install -g appium@3
+appium driver uninstall uiautomator2    # only when upgrading from Appium 2
 appium driver install uiautomator2
 appium -v
 appium driver list --installed   # should include uiautomator2
 ```
 
-### 5. Before `gradlew test`
+(Same commands as [Stack & local setup](#stack--local-setup-reviewer-or-ai).)
 
-From the cloned project root:
+### 5. Run tests
 
-1. Download the [pinned APK](#app-binary) to `apps/mda-2.3.0-27.apk`.
-2. Start the emulator (recommended):
-   ```bash
-   emulator -avd Pixel_7_API_34
-   ```
-3. Wait until boot finishes, then:
-   ```bash
-   adb devices
-   ```
-   You should see one line ending in `device`. Export that serial as `UDID` (optional but avoids launching a second AVD):
-   ```bash
-   export UDID=emulator-5554    # example; use your serial
-   ```
-4. Run tests ([Run](#run)).
+From the cloned project root, after the APK is in `apps/`:
+
+- **Windows (recommended):** [Local installation manual](#local-installation-manual-reviewers) — `run-smoke.cmd` or `run-full.cmd`.
+- **Manual:** start `emulator -avd Pixel_7_API_34 -no-audio`, wait for `adb devices` → `device`, then `gradlew test --rerun-tasks`. Only set `UDID` to that serial while the emulator is online; see manual for stale-`UDID` pitfalls.
 
 ### Toolchain checklist (for scripts / agents)
 
@@ -112,18 +302,36 @@ From the cloned project root:
 | Device | `adb devices` shows `device` (not `offline`) |
 | Appium | `appium -v` ≥ 3, uiautomator2 driver installed |
 | APK | file `apps/mda-2.3.0-27.apk` exists |
-| Tests | `gradlew test` / `./gradlew test` → 13 passed |
+| Tests | `gradlew test` → **17** tests passed; `gradlew smokeTest` → **4** |
 
 If `io.appium.settings` fails to upgrade on the emulator, run once: `adb uninstall io.appium.settings`, then re-run tests.
 
+### Troubleshooting a red run
+
+| Symptom | What it usually means | Fix |
+|---------|------------------------|-----|
+| `gradlw` not found | Typo | Use **`gradlew.bat`** (Windows) or `./gradlew` |
+| `socket hang up` / `instrumentation process is not running` | Two **Appium sessions** fought for one emulator (often **two `gradlew` at once**, or a stale UiAutomator2 server) | Stop other test runs; `gradlew --stop`; close extra Appium windows on port **4723**; `adb emu kill` then boot one AVD; run **`gradlew.bat test`** again (suite resets UiAutomator2 between tests) |
+| `chromedriverAutodownload` capability warning | Harmless log noise on some driver builds | Ignore; WebView still uses server `--allow-insecure uiautomator2:chromedriver_autodownload` |
+| SLF4J “No providers” | Gradle test JVM has no SLF4J binding | Ignore (tests do not rely on SLF4J output) |
+| `already in use by another session` | Overlapping sessions on `emulator-5554` | Same as socket hang up — **one Gradle test process** only; local Appium uses **`--session-override`** |
+| Gradle stuck at **90% EXECUTING** / many `IDLE` lines | Test still running, or stuck `adb`/Appium | `stop.cmd`; use **`harness.profile=fast`** locally; one Gradle process |
+| `Could not find a connected Android device` | Stale **`UDID`** or emulator off | `set UDID=` or use **`.\run-full.cmd`**; confirm `adb devices` |
+| `run-full.cmd` / `gradlew` not recognized (PowerShell) | Current directory not on PATH | **`.\run-full.cmd`**, **`.\gradlew.bat test`** from repo root |
+| `. was unexpected at this time.` after `Emulator ready` | Old batch bug in `apply-mute.cmd` | Pull latest; rerun **`.\run-full.cmd`** |
+| `adb` not recognized (Windows) | SDK not on `PATH` | `call scripts\android-env.cmd` |
+
+**Rule of thumb:** one emulator, one test run. Prefer **`run-smoke.cmd`** / **`run-full.cmd`** over bare `gradlew` unless the AVD is already up.
+
 ## What is covered
 
-**13 tests**, one behaviour each:
+**Regression suite** (see `docs/test-scenarios.md` for TC-xx ids), including:
 
-- Login: listed account, empty username, empty password, locked user, half-filled form after background, half-filled form after orientation or display-size stress.
-- Cart: badge after add, badge after quantity up, empty copy after remove.
-- Catalog: sort modal opens; price descending yields a non-increasing price list on screen.
-- WebView: non-https message; live https URL (host checked from the test JVM, then the in-app screen).
+- Login: listed account, parameterized validation (empty user/password, locked), background and rotation stress.
+- Cart: UI add (smoke), quantity/remove via catalog + cart screen, kill-and-relaunch badge (TC-14).
+- Catalog: sort modal (smoke), price descending order on screen.
+- WebView: https required (smoke), live https (offline error panel not automated — see `findings.md` F-10).
+- Extras: logcat crash oracle, cold-start budget (`perf`), accessibility labels (`a11y`).
 
 Scenario list: `docs/test-scenarios.md`.
 
@@ -131,6 +339,8 @@ Scenario list: `docs/test-scenarios.md`.
 
 - iOS, Espresso, biometrics, QR, geo, checkout (manual in docs).
 - Test retries and fixed `Thread.sleep` in tests (explicit waits only).
+
+**Not required for this assignment:** repo extras such as `AGENTS.md`, `SKILL.md` / skills folders, `CONTRIBUTORS`, or other modern agent/team metadata. They could be added later for day-to-day tooling; reviewers only need the test suite, docs above, and a green CI run.
 
 ## How the code is organised
 
@@ -163,7 +373,7 @@ tests  →  pages  →  locators (+ copy for expected strings)
 ## Waits and overlays
 
 - No hard sleeps in tests. `WebDriverWait` lives in `Screen`.
-- `SystemOverlays.dismissBlocking` clears permission dialogs and the emulator **“System UI isn’t responding”** sheet (clicks **Wait**). It runs on every wait poll and briefly after each new session (`stabilize`).
+- `SystemOverlays` clears permission dialogs and the **“System UI isn’t responding”** sheet. In **`strict`** harness it also runs on every wait poll; in **`fast`** (default local) only during session `stabilize`.
 - `DeviceOrientation.landscapeThenPortrait` tries real rotation; if the app locks portrait, it toggles display size via `adb` (documented quirk for this APK on the emulator).
 
 ## Session
@@ -194,23 +404,32 @@ Defaults live in `src/test/resources/config.properties`.
 | `apk.version.name` | Expected `versionName` (pin) |
 | `app.package` / `app.activity` | Launch targets |
 | `device.name` / `avd` | Emulator name when no `udid` |
-| `udid` | Device serial; empty = use `avd` capability |
+| `udid` | Device serial in file; usually leave **empty** — use env `UDID` only when `adb` shows that device |
+| `harness.profile` | **`fast`** (default local) or **`strict`** (CI / `run-gate.cmd`) |
 | `appium.server.url` | Empty = start local Appium; set to reuse an existing server |
 | `new.command.timeout.seconds` | Appium new-command timeout |
+| `ui.wait.seconds` / `catalog.product.wait.seconds` | UI wait tuning (see `docs/run-commands.md`) |
 | `language` / `locale` | Session locale (`en` / `US`) |
 | `device.logs.on.failure` | Capture logcat on failed tests |
 | `screenshots.runs.to.keep` | How many finished evidence runs to keep |
+| `crash.oracle` | In **strict** harness: fail on logcat FATAL/ANR; off in **fast** unless overridden |
+| `startup.budget.ms` | Soft cold-start median budget for `StartupTest` |
+| `overlay.stabilize.rounds` | Overlay sweep after session start (profile default) |
+| `kill.after.testrun` | On Gradle test JVM exit, `adb emu kill` for emulators when `udid` is empty (default **true**; `false` for local debug) |
+| `mute.android.system` | **Default true** — silent AVD via `AudioGuard` + scripts (`-no-audio`, `apply-mute.cmd`). Reviewer sound: **`false`** only |
 
 **Environment overrides:** any key can be set as an env var with the same name, or with dots replaced by underscores (e.g. `udid` → `UDID`, `appium.server.url` → `APPIUM_SERVER_URL`, `device.logs.on.failure` → `DEVICE_LOGS_ON_FAILURE`). Env wins over the file.
 
 ## Run
 
-| OS | Command |
-|----|---------|
-| Windows | `gradlew.bat test` |
-| Linux / macOS | `./gradlew test` |
+See [Local installation manual (reviewers)](#local-installation-manual-reviewers) and `docs/run-commands.md`.
 
-CI exports `UDID` from `adb devices` and runs `./gradlew test` against that emulator.
+| OS | Typical command |
+|----|-----------------|
+| Windows | `run-full.cmd` or `gradlew.bat test --rerun-tasks` (emulator already in `adb devices`) |
+| Linux / macOS | `./gradlew test --rerun-tasks` after `export UDID=…` matching `adb devices` |
+
+CI boots the emulator, sets `UDID` from `adb devices`, `HARNESS_PROFILE=strict`, then `./gradlew test`.
 
 ## Failure evidence
 
@@ -218,4 +437,4 @@ On failure: screenshot and optional logcat under `build/failure-evidence/<runId>
 
 ## CI
 
-`.github/workflows/android-tests.yml` — Ubuntu, JDK 17, Appium 3, API 34 emulator, `./gradlew test`, artifacts on failure.
+`.github/workflows/android-tests.yml` — Ubuntu, JDK 17, Appium 3, API 34 emulator; **pull_request**, **push**, nightly, and manual → full **`test`** (17); JUnit summary via `mikepenz/action-junit-report`; failure evidence artifact when present.

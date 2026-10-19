@@ -1,20 +1,22 @@
 package mda.pages
 
 import io.appium.java_client.android.AndroidDriver
+import mda.config.Config
 import mda.session.SystemOverlays
 import org.openqa.selenium.By
 import org.openqa.selenium.TimeoutException
 import org.openqa.selenium.WebElement
+import org.openqa.selenium.WebDriver
 import org.openqa.selenium.support.ui.ExpectedCondition
+import org.openqa.selenium.support.ui.FluentWait
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.time.Duration
 
 open class Screen(protected val driver: AndroidDriver) {
-    protected fun visible(locator: By, timeoutSeconds: Long = 20): WebElement {
-        val wait = WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
-        val found = wait.until(
+    protected fun visible(locator: By, timeoutSeconds: Long = Config.uiWaitSeconds): WebElement {
+        val found = wait(timeoutSeconds).until(
             ExpectedCondition { _ ->
-                SystemOverlays.dismissBlocking(driver)
+                SystemOverlays.dismissBlockingIfEnabled(driver)
                 driver.findElements(locator).firstOrNull { element ->
                     try {
                         element.isDisplayed
@@ -27,11 +29,10 @@ open class Screen(protected val driver: AndroidDriver) {
         return found ?: throw TimeoutException("Element not visible: $locator")
     }
 
-    protected fun gone(locator: By, timeoutSeconds: Long = 20) {
-        val wait = WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
-        wait.until(
+    protected fun gone(locator: By, timeoutSeconds: Long = Config.uiWaitSeconds) {
+        wait(timeoutSeconds).until(
             ExpectedCondition { _ ->
-                SystemOverlays.dismissBlocking(driver)
+                SystemOverlays.dismissBlockingIfEnabled(driver)
                 driver.findElements(locator).none { element ->
                     try {
                         element.isDisplayed
@@ -43,7 +44,7 @@ open class Screen(protected val driver: AndroidDriver) {
         )
     }
 
-    protected fun showing(locator: By, timeoutSeconds: Long = 20): Boolean {
+    protected fun showing(locator: By, timeoutSeconds: Long = Config.uiWaitSeconds): Boolean {
         return try {
             visible(locator, timeoutSeconds)
             true
@@ -52,15 +53,18 @@ open class Screen(protected val driver: AndroidDriver) {
         }
     }
 
-    /** Explicit waits outside [visible] still sweep emulator and OS overlays each poll. */
-    protected fun <T> until(timeoutSeconds: Long = 20, condition: () -> T?): T {
-        val wait = WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
-        val value = wait.until(
+    protected fun <T> until(timeoutSeconds: Long = Config.uiWaitSeconds, condition: () -> T?): T {
+        val value = wait(timeoutSeconds).until(
             ExpectedCondition { _ ->
-                SystemOverlays.dismissBlocking(driver)
+                SystemOverlays.dismissBlockingIfEnabled(driver)
                 condition()
             }
         )
         return value ?: throw TimeoutException("Condition was not met within ${timeoutSeconds}s")
+    }
+
+    private fun wait(timeoutSeconds: Long): FluentWait<WebDriver> {
+        return WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
+            .pollingEvery(Duration.ofMillis(250))
     }
 }

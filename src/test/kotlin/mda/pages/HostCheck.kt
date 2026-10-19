@@ -11,10 +11,10 @@ object HostCheck {
         try {
             val client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(8))
                 .build()
             val request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(20))
+                .timeout(Duration.ofSeconds(8))
                 .GET()
                 .build()
             return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode()

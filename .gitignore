@@ -7,3 +7,5 @@ local.properties
 captures/
 apps/*.apk
 .DS_Store
+.cursor/
+scripts/.last-udid

@@ -7,10 +7,14 @@ import mda.pages.WebPage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
 class WebViewTest : BaseTest() {
     @Test
+    @Tag("smoke")
+    @DisplayName("TC-10 a url without https shows the https required copy")
     fun `a url without https shows the https required copy`() {
         val web = WebPage(driver)
         web.open()
@@ -19,6 +23,7 @@ class WebViewTest : BaseTest() {
     }
 
     @Test
+    @DisplayName("TC-11 a live https url is accepted by the host and the screen shows no error panel")
     fun `a live https url is accepted by the host and the screen shows no error panel`() {
         val web = WebPage(driver)
         val status = HostCheck.status(web.liveHttpsUrl())
@@ -31,4 +36,5 @@ class WebViewTest : BaseTest() {
             assertTrue(title.isNotBlank())
         }
     }
+
 }
