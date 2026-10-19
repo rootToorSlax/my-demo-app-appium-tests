@@ -68,4 +68,4 @@ Set in CMD before `gradlew` (dots → underscores, uppercase):
 | `a11y` | 2 | `a11yTest` |
 | `perf` | 1 | `test --tests StartupTest` |
 
-CI: PR → `smokeTest`; push/main → `test`.
+CI: all triggers run full **`test`** (17 tests, `HARNESS_PROFILE=strict`). Local quick gate: `smokeTest`.

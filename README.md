@@ -162,7 +162,7 @@ Then `run-smoke.cmd` or `run-full.cmd` once. If instrumentation errors persist: 
 - Full: `BUILD SUCCESSFUL`, **17/17** tests, summary `TEST SUMMARY: 17/17 passed`
 - Lines `--- Session start: TC-… ---` / `--- Session ready ---` between tests
 
-CI on push already runs **`smokeTest`** (PR) or **`test`** (main) with `HARNESS_PROFILE=strict` — no local setup required to review the submission.
+CI runs the full **`test`** suite (17 tests, `HARNESS_PROFILE=strict`) on PR and push — no local setup required to review the submission. Use **`smokeTest`** locally for a ~2 min check.
 
 ## Quick start
 
@@ -190,7 +190,7 @@ CI on push already runs **`smokeTest`** (PR) or **`test`** (main) with `HARNESS_
 | Gradle task | JUnit tags | When |
 |-------------|------------|------|
 | `gradlew test` | (all) | Local full run; CI on **push** to `master` / `main`, nightly, manual dispatch |
-| `gradlew smokeTest` | `smoke` | Fast gate — four checks; CI on **pull_request** |
+| `gradlew smokeTest` | `smoke` | Fast local gate — four checks |
 | `gradlew a11yTest` | `a11y` | Accessibility label checks (2 tests) |
 
 TC ids and mapping: `docs/test-scenarios.md`. App findings: `docs/findings.md`. Deliberate omissions: `docs/scope-decisions.md`. Logcat crash oracle: `docs/logcat-crash-oracle.md`.
@@ -204,7 +204,7 @@ Beyond the original regression paths, the suite adds reviewer-friendly depth. Mo
 | TC-xx traceability | `@DisplayName("TC-…")` on every test; Gradle HTML report shows ids | all tests | — |
 | Findings & scope | Documented app/env quirks and deliberate omissions | — | `docs/findings.md`, `docs/scope-decisions.md` |
 | Parameterized login | TC-02/03/04 in one `@ParameterizedTest` | `LoginTest` | — |
-| Smoke vs full | Fast PR gate vs full regression | `smoke` on four tests; `gradlew smokeTest` | CI: PR → smoke, push/main → `test` |
+| Smoke vs full | Fast local gate vs full regression | `smoke` on four tests; `gradlew smokeTest` | CI: full `test` on PR and push |
 | JUnit report in CI | Test summary on the GitHub job | workflow | — |
 | Logcat crash oracle | After each test, fail if logcat shows FATAL/ANR | all tests | `crash.oracle` — **on** in `strict` harness, **off** in `fast` (default local) |
 | Cold-start budget | Three `am start -W` samples; median vs soft cap | `perf`, `StartupTest` | `startup.budget.ms` (default **3000**) |
@@ -429,7 +429,7 @@ See [Local installation manual (reviewers)](#local-installation-manual-reviewers
 | Windows | `run-full.cmd` or `gradlew.bat test --rerun-tasks` (emulator already in `adb devices`) |
 | Linux / macOS | `./gradlew test --rerun-tasks` after `export UDID=…` matching `adb devices` |
 
-CI boots the emulator, sets `UDID` from `adb devices`, `HARNESS_PROFILE=strict`, then `./gradlew test` or `smokeTest`.
+CI boots the emulator, sets `UDID` from `adb devices`, `HARNESS_PROFILE=strict`, then `./gradlew test`.
 
 ## Failure evidence
 
@@ -437,4 +437,4 @@ On failure: screenshot and optional logcat under `build/failure-evidence/<runId>
 
 ## CI
 
-`.github/workflows/android-tests.yml` — Ubuntu, JDK 17, Appium 3, API 34 emulator; **pull_request** → `smokeTest`, **push** / nightly / manual → full `test`; JUnit summary via `mikepenz/action-junit-report`; failure evidence artifact when present.
+`.github/workflows/android-tests.yml` — Ubuntu, JDK 17, Appium 3, API 34 emulator; **pull_request**, **push**, nightly, and manual → full **`test`** (17); JUnit summary via `mikepenz/action-junit-report`; failure evidence artifact when present.
