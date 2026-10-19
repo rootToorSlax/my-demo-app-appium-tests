@@ -11,6 +11,7 @@ object DeviceWait {
         val deadline = System.currentTimeMillis() + maxWaitSeconds * 1_000
         val configured = Config.udid.takeIf { it.isNotBlank() }
         while (System.currentTimeMillis() < deadline) {
+            Adb.reconnectOffline()
             val online = Adb.connectedDeviceSerials()
             val serial = when {
                 configured != null && online.contains(configured) -> configured

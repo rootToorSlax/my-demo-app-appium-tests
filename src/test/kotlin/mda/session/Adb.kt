@@ -37,6 +37,16 @@ object Adb {
         shellCapture(driver, command)
     }
 
+    fun reconnectOffline() {
+        runCatching {
+            val adb = adbExecutable()
+            ProcessBuilder(adb.absolutePath, "reconnect", "offline")
+                .redirectErrorStream(true)
+                .start()
+                .waitFor(10, TimeUnit.SECONDS)
+        }
+    }
+
     fun connectedDeviceSerials(): List<String> {
         val adb = adbExecutable()
         val process = ProcessBuilder(adb.absolutePath, "devices").redirectErrorStream(true).start()
