@@ -80,15 +80,13 @@ private object Ansi {
 
 fun Test.configureTestLogging() {
     testLogging {
-        events(
-            TestLogEvent.SKIPPED,
-        )
+        events(TestLogEvent.SKIPPED)
         exceptionFormat = TestExceptionFormat.FULL
-        // Appium logs to stdout can fill Gradle's pipe and freeze later tests.
         showStandardStreams = false
         showExceptions = true
         showCauses = true
         showStackTraces = true
+        displayGranularity = org.gradle.api.tasks.testing.logging.TestLogging.DisplayGranularity.MIDDLE
     }
     addTestListener(
         object : TestListener {
@@ -125,11 +123,11 @@ fun Test.configureTestLogging() {
                 val title = Ansi.highlightTcIds(testDescriptor.displayName ?: testDescriptor.name)
                 val status = when (result.resultType) {
                     TestResult.ResultType.SUCCESS -> Ansi.greenBright("PASSED")
-                    TestResult.ResultType.FAILURE -> Ansi.redBright("FAIL")
+                    TestResult.ResultType.FAILURE -> Ansi.redBright("FAILED")
                     TestResult.ResultType.SKIPPED -> Ansi.yellowBright("SKIPPED")
                     else -> result.resultType.name
                 }
-                logger.lifecycle("    $className > $title $status")
+                logger.lifecycle("$className > $title — $status")
             }
         }
     )

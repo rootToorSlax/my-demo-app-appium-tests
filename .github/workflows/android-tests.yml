@@ -63,7 +63,7 @@ jobs:
             sdkmanager "build-tools;34.0.0"
             chmod +x ./gradlew
             adb reconnect offline >/dev/null 2>&1 || true
-            export UDID=$(adb devices | awk '/\tdevice$/{print $1; exit}') && export HARNESS_PROFILE=strict && test -n "$UDID" || (echo "No adb device after boot" && adb devices -l && exit 1) && ./gradlew test --no-daemon
+            export UDID=$(adb devices | awk '/\tdevice$/{print $1; exit}') && export HARNESS_PROFILE=strict && test -n "$UDID" || (echo "No adb device after boot" && adb devices -l && exit 1) && ./gradlew test --no-daemon --console=plain
 
       - name: Publish test results
         if: always()
