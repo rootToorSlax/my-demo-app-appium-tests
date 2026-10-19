@@ -32,11 +32,12 @@ object AppiumServer {
             .withAppiumJS(appiumMain())
             .withIPAddress("127.0.0.1")
             .usingPort(port)
-            .withArgument(GeneralServerFlag.LOG_LEVEL, "warn")
+            .withArgument(GeneralServerFlag.LOG_LEVEL, Config.appiumLogLevel)
             .withArgument(
                 GeneralServerFlag.ALLOW_INSECURE,
                 "uiautomator2:chromedriver_autodownload"
             )
+            .withArgument(GeneralServerFlag.SESSION_OVERRIDE)
             .withEnvironment(environmentForChild())
             .build()
         built.start()

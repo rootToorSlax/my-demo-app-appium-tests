@@ -2,7 +2,11 @@ name: Android tests
 
 on:
   push:
+    branches: [master, main]
   pull_request:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 jobs:
   android:
@@ -49,7 +53,19 @@ jobs:
             chmod +x ./gradlew
             serial=$(adb devices | awk '/\tdevice$/{print $1; exit}')
             export UDID="$serial"
-            ./gradlew test --no-daemon
+            export HARNESS_PROFILE=strict
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              ./gradlew smokeTest --no-daemon
+            else
+              ./gradlew test --no-daemon
+            fi
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: "build/test-results/**/*.xml"
+          include_passed: true
 
       - name: Upload failure evidence
         if: always()

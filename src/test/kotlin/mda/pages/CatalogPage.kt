@@ -1,6 +1,7 @@
 package mda.pages
 
 import io.appium.java_client.android.AndroidDriver
+import mda.config.Config
 import mda.locators.CartLocators
 import mda.locators.CatalogLocators
 import org.openqa.selenium.StaleElementReferenceException
@@ -10,9 +11,24 @@ import java.math.BigDecimal
 class CatalogPage(driver: AndroidDriver) : Screen(driver) {
     fun isShowing(): Boolean = showing(CatalogLocators.productList)
 
+    /** Fails fast when the catalog API did not populate tiles (empty grid on emulator). */
+    fun waitUntilHasProducts(minCount: Int = 1, timeoutSeconds: Long = Config.catalogProductWaitSeconds) {
+        until(timeoutSeconds) {
+            val count = driver.findElements(CatalogLocators.productTile).count { element ->
+                try {
+                    element.isDisplayed
+                } catch (_: Exception) {
+                    false
+                }
+            }
+            if (count >= minCount) true else null
+        }
+    }
+
     fun openFirstProduct() {
         visible(CatalogLocators.productList)
-        val first = until(20) { topLeftProductTile() }
+        waitUntilHasProducts()
+        val first = until(Config.uiWaitLongSeconds) { topLeftProductTile() }
         first.click()
     }
 
@@ -24,16 +40,17 @@ class CatalogPage(driver: AndroidDriver) : Screen(driver) {
         visible(CatalogLocators.sortButton).click()
     }
 
-    fun sortModalVisible(): Boolean = showing(CatalogLocators.sortModal, 10)
+    fun sortModalVisible(): Boolean = showing(CatalogLocators.sortModal, 8)
 
     fun sortByPriceDescending() {
         openSort()
         visible(CatalogLocators.priceDescending).click()
-        gone(CatalogLocators.sortModal, 15)
+        gone(CatalogLocators.sortModal, Config.uiWaitSeconds)
     }
 
     fun pricesOnScreen(): List<BigDecimal> {
-        until(15) { if (readPrices().size >= 2) true else null }
+        waitUntilHasProducts(2)
+        until(Config.uiWaitSeconds) { if (readPrices().size >= 2) true else null }
         return readPrices()
     }
 
