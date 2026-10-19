@@ -38,6 +38,14 @@ jobs:
           curl -fsSL -o apps/mda-2.3.0-27.apk \
             https://github.com/saucelabs/my-demo-app-android/releases/download/2.3.0/mda-2.3.0-27.apk
 
+      # Without KVM, android-emulator-runner adds -accel off and boot can exceed 10 min.
+      - name: Enable KVM on Linux runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run the suite on the emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -47,30 +55,20 @@ jobs:
           profile: pixel_7
           avd-name: Pixel_7_API_34
           disable-animations: true
-          emulator-boot-timeout-in-minutes: 15
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -no-boot-anim -noaudio
+          disable-linux-hw-accel: auto
+          emulator-boot-timeout: 1200
+          ram-size: 3072M
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -no-boot-anim -noaudio -no-metrics
           script: |
             sdkmanager "build-tools;34.0.0"
             chmod +x ./gradlew
-            echo "Waiting for adb device + sys.boot_completed (reconnect offline)..."
-            adb wait-for-device
-            ready=0
-            for attempt in $(seq 1 120); do
-              adb reconnect offline >/dev/null 2>&1 || true
-              state=$(adb devices | awk '/^emulator-/{print $2; exit}')
-              boot=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
-              if [ "$state" = "device" ] && [ "$boot" = "1" ]; then
-                ready=1
-                break
-              fi
-              sleep 2
-            done
-            adb devices -l
-            if [ "$ready" != "1" ]; then
-              echo "Emulator did not reach device+boot_completed in time"
+            adb reconnect offline >/dev/null 2>&1 || true
+            serial=$(adb devices | awk '/\tdevice$/{print $1; exit}')
+            if [ -z "$serial" ]; then
+              echo "No adb device in ready state after emulator boot"
+              adb devices -l
               exit 1
             fi
-            serial=$(adb devices | awk '/\tdevice$/{print $1; exit}')
             export UDID="$serial"
             export HARNESS_PROFILE=strict
             if [ "${{ github.event_name }}" = "pull_request" ]; then
